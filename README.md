@@ -1,5 +1,7 @@
 {usage}
 
+reduce .gitignore files in image/ok/ & image/ng/
+
 put ok images in images/ok/
 
 put ng images in images/ng/
