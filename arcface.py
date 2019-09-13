@@ -15,16 +15,12 @@ from keras.optimizers import Adam
 from sklearn import metrics
 import time
 import os
+from sklearn.model_selection import train_test_split
 
-ok_train = 2832
-ok_test = 100
-ng_train = 8
-ng_test = 1
+ok_test_rate = 0.2
+ng_test_rate = 0.2
 
 class data:
-    def __init__(self, data_size):
-        self.data_size = data_size
-
     def resize(self, x, to_color=False):
         result = []
 
@@ -38,16 +34,16 @@ class data:
 
         return np.array(result)
 
-    def choose_data(self, x, y, normal_id, anomaly_id):
+    def choose_data(self, x, y, ok_label, normal_id, anomaly_id):
         x_normal, x_anomaly = [], []
         x_ref, y_ref = [], []
         j = 0
-        for i in range(len(x)):
+        for i in range(len(y)):
             if y[i] == normal_id:
                 x_normal.append(x[i].reshape((x.shape[1:])))
             elif y[i] == anomaly_id:
-                x_anomaly.append(x[i].reshape(x.shape[1:]))
-                if j < ng_train:
+                x_anomaly.append(x[i].reshape((x.shape[1:])))
+                if j < len(ok_label):
                    x_ref.append(x[i].reshape((x.shape[1:])))
                    y_ref.append(y[i])
                    j += 1
@@ -57,53 +53,54 @@ class data:
     def get_data(self):
         oks = glob.glob('images/ok/*')
         ngs = glob.glob('images/ng/*')
-        x_train = np.zeros((ok_train+ng_train,96,96,3),dtype=np.float32)
-        y_train = np.zeros(ok_train+ng_train)
-        x_test = np.zeros((ok_test+ng_test,96,96,3),dtype=np.float32)
-        y_test = np.zeros(ok_test+ng_test)
+        ok_data = np.zeros((len(oks),96,96,3),dtype=np.float32)
+        ok_label = np.zeros(len(oks))
+        ng_data = np.zeros((len(ngs),96,96,3),dtype=np.float32)
+        ng_label = np.zeros(len(ngs))
         normal_path = []
-        anormal_path = []
-        for i in range(ok_train+ok_test):
+        anomaly_path = []
+
+        for i in range(len(oks)):
+           print(i+1,'/',len(oks))
            image = Image.open(oks[i])
            image = np.array(image)
            image = image[np.newaxis]
            image = self.resize(image)
-           print(i,'/',ok_train+ok_test)
-           if i < ok_train:
-              x_train[i] = image
-              y_train[i] = 0
-           elif i < ok_train+ok_test:
-              x_test[i-ok_train] = image
-              y_test[i-ok_train] = 0
-              normal_path.append(oks[i])
-        for i in range(ng_train+ng_test):
-           print(i,'/',ng_train+ng_test)
+           ok_data[i] = image
+           ok_label[i] = 0
+           normal_path.append(oks[i])
+        for i in range(len(ngs)):
+           print(i+1,'/',len(ngs))
            image = Image.open(ngs[i])
            image = np.array(image)
            image = image[np.newaxis]
            image = self.resize(image)
-           if i < ng_train:
-              x_train[i+ok_train] = image
-              y_train[i+ok_train] = 1
-           elif i < ng_train+ng_test:
-              x_test[i-ng_train+ok_test] = image
-              y_test[i-ng_train+ok_test] = 1
-              anormal_path.append(ngs[i])
+           ng_data[i] = image
+           ng_label[i] = 1
+           anomaly_path.append(ngs[i])
 
-        x_train = x_train / 255
-        x_test = x_test / 255
+        ok_data /= 255.0
+        ng_data /= 255.0
 
-        x_train_normal, _, x_ref, y_ref = self.choose_data(x_train, y_train, 0, 1)
+        ok_data_train, ok_data_test, ok_label_train, ok_label_test, normal_path_train, normal_path_test = train_test_split(ok_data, ok_label, normal_path, test_size = ok_test_rate)
+        ng_data_train, ng_data_test, ng_label_train, ng_label_test, anomaly_path_train, anomaly_path_test = train_test_split(ng_data, ng_label, anomaly_path, test_size = ng_test_rate)
+
+        x_train = np.concatenate((ok_data_train, ng_data_train),axis=0)
+        x_test = np.concatenate((ok_data_test, ng_data_test),axis=0)
+        y_train = np.concatenate((ok_label_train, ng_label_train),axis=0)
+        y_test = np.concatenate((ok_label_test, ng_label_test),axis=0)
+
+        x_train_normal, _, x_ref, y_ref = self.choose_data(x_train, y_train, ok_label_train, 0, 1)
         y_ref = to_categorical(y_ref)
 
-        x_test_normal, x_test_anomaly, _, _ = self.choose_data(x_test, y_test, 0, 1)
+        x_test_normal, x_test_anomaly, _, _ = self.choose_data(x_test, y_test, ok_label_test, 0, 1)
 
         x_train_normal = self.resize(x_train_normal)
         x_ref = self.resize(x_ref)
         x_test_normal = self.resize(x_test_normal)
         x_test_anomaly = self.resize(x_test_anomaly)
 
-        return x_train_normal, x_ref, y_ref, x_test_normal, x_test_anomaly, normal_path, anormal_path
+        return x_train_normal, x_ref, y_ref, x_test_normal, x_test_anomaly, normal_path_test, anomaly_path_test
 
 class Arcfacelayer(Layer):
     def __init__(self, output_dim, s=30, m=0.50, easy_margin=False):
@@ -224,10 +221,10 @@ def Visualize(input_model, train, test, label_num):
 
     return np.uint8(jetcam)
 
-DATA = data(ng_train)
+DATA = data()
 
-x_train_normal, x_ref, y_ref, x_test_normal, x_test_anomaly, normal_path, anormal_path = DATA.get_data()
-print(x_train_normal.shape,x_ref.shape,y_ref.shape,x_test_normal.shape,x_test_anomaly.shape)
+x_train_normal, x_ref, y_ref, x_test_normal, x_test_anomaly, normal_path_test, anomaly_path_test = DATA.get_data()
+#print(x_train_normal.shape,x_ref.shape,y_ref.shape,x_test_normal.shape,x_test_anomaly.shape)
 
 normal_label = np.zeros((len(x_train_normal), 2))
 normal_label[:,0] = 1
@@ -238,28 +235,30 @@ t1 = time.time()
 Z1_arc = -get_score_arc(model_a, x_train_normal, x_test_normal)
 Z2_arc = -get_score_arc(model_a, x_train_normal, x_test_anomaly)
 
-result = np.empty((ok_test+ng_test,2),dtype='U100')
-for i in range(ok_test):
-    result[i,0] = str(os.path.basename(normal_path[i]))
-    result[i,1] = str(Z1_arc[i])
-for i in range(ng_test):
-    result[ok_test+i,0] = str(os.path.basename(anormal_path[i]))
-    result[ok_test+i,1] = str(Z2_arc[i])
+result = np.empty((len(x_test_normal)+len(x_test_anomaly),3),dtype='U100')
+for i in range(len(x_test_normal)):
+    result[i,0] = str(os.path.basename(normal_path_test[i]))
+    result[i,1] = 'OK'
+    result[i,2] = str(Z1_arc[i])
+for i in range(len(x_test_anomaly)):
+    result[len(x_test_normal)+i,0] = str(os.path.basename(anomaly_path_test[i]))
+    result[len(x_test_normal)+i,1] = 'NG'
+    result[len(x_test_normal)+i,2] = str(Z2_arc[i])
 np.savetxt('result.csv',result,delimiter=',',fmt='%s')
 t2 = time.time()
 print('time',t2-t1)
 
-for i in range(10):
+for i in range(x_test_normal.shape[0]):
     train = x_train_normal
     test = x_test_normal[i,:,:,:]
     img_GCAMplusplus = Visualize(model_a, train, test, 0)
-    img_Gplusplusname = "heatmap/"+os.path.basename(normal_path[i])
+    img_Gplusplusname = "heatmap/"+os.path.basename(normal_path_test[i])
     cv2.imwrite(img_Gplusplusname, img_GCAMplusplus)
 
 for i in range(x_test_anomaly.shape[0]):
     train = x_ref
     test = x_test_anomaly[i,:,:,:]
     img_GCAMplusplus = Visualize(model_a, train, test, 1)
-    img_Gplusplusname = "heatmap/"+os.path.basename(anormal_path[i])
+    img_Gplusplusname = "heatmap/"+os.path.basename(anomaly_path_test[i])
     cv2.imwrite(img_Gplusplusname, img_GCAMplusplus)
 print("Completed.")

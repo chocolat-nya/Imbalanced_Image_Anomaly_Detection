@@ -1,3 +1,15 @@
+usage
+
+put ok images in images/ok/
+put ng images in images/ng/
+python arcface.py
+
+
+option
+When you want to change train & test rate,
+in arcface.py change numbers of ok_test_rate & ng_test_rate.
+
+
 use urls below as a reference
 
 https://github.com/shinmura0/DeepAnomalyDetection_benchmark
