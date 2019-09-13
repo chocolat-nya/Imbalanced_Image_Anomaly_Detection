@@ -247,14 +247,14 @@ for i in range(len(x_test_anomaly)):
 np.savetxt('result.csv',result,delimiter=',',fmt='%s')
 t2 = time.time()
 print('time',t2-t1)
-
+'''
 for i in range(x_test_normal.shape[0]):
     train = x_train_normal
     test = x_test_normal[i,:,:,:]
     img_GCAMplusplus = Visualize(model_a, train, test, 0)
     img_Gplusplusname = "heatmap/"+os.path.basename(normal_path_test[i])
     cv2.imwrite(img_Gplusplusname, img_GCAMplusplus)
-
+'''
 for i in range(x_test_anomaly.shape[0]):
     train = x_ref
     test = x_test_anomaly[i,:,:,:]
