@@ -191,7 +191,7 @@ def cosine_similarity(x1, x2):
     cosine_sim = np.dot(x1, x2.T)/(x1_norm*x2_norm+1e-10)
     return cosine_sim
 
-def Visualize(input_model, train, test, label_num):
+def heatmap(input_model, train, test, label_num):
 
     model = Model(input_model.get_layer(index=0).input, input_model.get_layer(index=-4).output)
 #    model.summary()
@@ -251,14 +251,14 @@ print('time',t2-t1)
 for i in range(x_test_normal.shape[0]):
     train = x_train_normal
     test = x_test_normal[i,:,:,:]
-    img_GCAMplusplus = Visualize(model_a, train, test, 0)
-    img_Gplusplusname = "heatmap/"+os.path.basename(normal_path_test[i])
-    cv2.imwrite(img_Gplusplusname, img_GCAMplusplus)
+    img_heatmap = heatmap(model_a, train, test, 0)
+    img_heatmapname = "heatmap/"+os.path.basename(normal_path_test[i])
+    cv2.imwrite(img_heatmapname, img_heatmap)
 '''
 for i in range(x_test_anomaly.shape[0]):
     train = x_ref
     test = x_test_anomaly[i,:,:,:]
-    img_GCAMplusplus = Visualize(model_a, train, test, 1)
-    img_Gplusplusname = "heatmap/"+os.path.basename(anomaly_path_test[i])
-    cv2.imwrite(img_Gplusplusname, img_GCAMplusplus)
+    img_heatmap = heatmap(model_a, train, test, 1)
+    img_heatmapname = "heatmap/"+os.path.basename(anomaly_path_test[i])
+    cv2.imwrite(img_heatmapname, img_heatmap)
 print("Completed.")
