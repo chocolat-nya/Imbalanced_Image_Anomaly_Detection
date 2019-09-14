@@ -1,6 +1,6 @@
 {usage}
 
-reduce .gitignore files in image/ok/ & image/ng/
+throw away .gitignore files in image/ok/ & image/ng/
 
 put ok images in images/ok/
 
