@@ -1,3 +1,7 @@
+{what for}
+
+Anomaly detection of images. It works if NG image number is too small compared with OK image number.
+
 {usage}
 
 throw away .gitignore files in image/ok/ & image/ng/
