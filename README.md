@@ -21,7 +21,7 @@ When you want to change train & test rate,
 in arcface.py change numbers of ok_test_rate & ng_test_rate.
 
 
-{use urls below as a reference}
+{used urls below as a reference}
 
 https://github.com/shinmura0/DeepAnomalyDetection_benchmark
 
