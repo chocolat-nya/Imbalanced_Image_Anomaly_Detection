@@ -197,7 +197,7 @@ def heatmap(input_model, train, test, label_num):
 #    model.summary()
     Test = np.expand_dims(test, axis=0)
 
-    gradient_function = K.function([model.layers[0].input], [model.layers[-2].output])
+    gradient_function = K.function([model.layers[0].input], [model.layers[-4].output])
     layer_output = gradient_function([Test])[0]
 
     G, R, ch = layer_output.shape[1:]
@@ -217,7 +217,7 @@ def heatmap(input_model, train, test, label_num):
     acm_img = cv2.cvtColor(acm_img, cv2.COLOR_BGR2RGB)
     acm_img = cv2.resize(acm_img,(96,96))
 
-    jetcam = (np.float32(acm_img)*0.6 + test * 255 * 0.4)
+    jetcam = (np.float32(acm_img)*0.8 + test * 255 * 0.2)
 
     return np.uint8(jetcam)
 
