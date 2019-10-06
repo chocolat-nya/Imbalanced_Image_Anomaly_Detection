@@ -199,7 +199,7 @@ def cosine_similarity(x1, x2):
 def heatmap(input_model, train, test_path):
 
     model = Model(input_model.get_layer(index=0).input, input_model.get_layer(index=-4).output)
-    model.summary()
+#    model.summary()
     Train = train
     test = Image.open(test_path)
     test = np.array(test)
