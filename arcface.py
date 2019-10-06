@@ -208,7 +208,6 @@ def heatmap(input_model, train, test_path):
     Test = Test.astype(np.float32)
     Test /= 255.0
 
-#    gradient_function = K.function([model.layers[0].input], [model.get_layer('block_3_expand').output])
     gradient_function = K.function([model.layers[0].input], [model.get_layer('block_1_expand').output])
     layer_output_test = gradient_function([Test])[0]
 
