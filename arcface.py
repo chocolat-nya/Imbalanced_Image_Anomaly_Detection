@@ -65,7 +65,10 @@ class data:
            image = Image.open(oks[i])
            image = np.array(image)
            image = image[np.newaxis]
-           image = self.resize(image)
+           if image.ndim == 4:
+               image = self.resize(image)
+           else:
+               image = self.resize(image,to_color=True)
            ok_data[i] = image
            ok_label[i] = 0
            normal_path.append(oks[i])
@@ -74,7 +77,10 @@ class data:
            image = Image.open(ngs[i])
            image = np.array(image)
            image = image[np.newaxis]
-           image = self.resize(image)
+           if image.ndim == 4:
+               image = self.resize(image)
+           else:
+               image = self.resize(image,to_color=True)
            ng_data[i] = image
            ng_label[i] = 1
            anomaly_path.append(ngs[i])
@@ -164,7 +170,7 @@ def train_arcface(x, y, classes):
                   optimizer=Adam(lr=0.0001, amsgrad=True),
                   metrics=['accuracy'])
 
-    hist = model.fit([x, y], y, batch_size=128, epochs=10, verbose = False)
+    hist = model.fit([x, y], y, batch_size=128, epochs=100, verbose = False)
 
     return model
 
@@ -178,7 +184,6 @@ def get_score_arc(model, train, test):
     for i in range(len(predict_vector)):
         cos_similarity = cosine_similarity(predict_vector[i], hold_vector)
         score.append(np.max(cos_similarity))
-
     return np.array(score)
 
 def cosine_similarity(x1, x2): 
@@ -191,23 +196,35 @@ def cosine_similarity(x1, x2):
     cosine_sim = np.dot(x1, x2.T)/(x1_norm*x2_norm+1e-10)
     return cosine_sim
 
-def heatmap(input_model, train, test, label_num):
+def heatmap(input_model, train, test_path):
 
     model = Model(input_model.get_layer(index=0).input, input_model.get_layer(index=-4).output)
-#    model.summary()
-    Test = np.expand_dims(test, axis=0)
+    model.summary()
+    Train = train
+    test = Image.open(test_path)
+    test = np.array(test)
+    Test = cv2.resize(test,dsize=(96,96))
+    Test = np.expand_dims(Test, axis=0)
+    Test = Test.astype(np.float32)
+    Test /= 255.0
 
-    gradient_function = K.function([model.layers[0].input], [model.layers[-4].output])
-    layer_output = gradient_function([Test])[0]
+#    gradient_function = K.function([model.layers[0].input], [model.get_layer('block_3_expand').output])
+    gradient_function = K.function([model.layers[0].input], [model.get_layer('block_1_expand').output])
+    layer_output_test = gradient_function([Test])[0]
 
-    G, R, ch = layer_output.shape[1:]
-    res = np.zeros((G,R))
+    res = np.zeros((48,48))
+    for j in range(Train.shape[0]):
+     Train2 = Train[j]
+     Train2 = np.expand_dims(Train2, axis=0)
+     layer_output_train = gradient_function([Train2])[0]
+     G1, R1, ch = layer_output_train.shape[1:]
+     G2, R2, ch = layer_output_test.shape[1:]
 
-    for i in range(ch):
-        img_res = layer_output[0,:,:,i]
-        res = res + img_res
+     for i in range(ch):
+         img_res = np.abs(layer_output_test[0,:,:,i]-layer_output_train[0,:,:,i])
+         res = res + img_res
 
-    res = res/ch
+    res = res/ch/Train.shape[0]
 
     res_flatte = np.ma.masked_equal(res,0)
     res_flatte = (res_flatte - res_flatte.min())*255/(res_flatte.max()-res_flatte.min())
@@ -215,11 +232,24 @@ def heatmap(input_model, train, test, label_num):
 
     acm_img = cv2.applyColorMap(np.uint8(res_flatte), cv2.COLORMAP_JET)
     acm_img = cv2.cvtColor(acm_img, cv2.COLOR_BGR2RGB)
-    acm_img = cv2.resize(acm_img,(96,96))
-
-    jetcam = (np.float32(acm_img)*0.8 + test * 255 * 0.2)
-
+    rev = np.zeros((test.shape[1],test.shape[0],3))
+    rev = 255
+    acm_img = rev - acm_img
+    acm_img = find_rect_of_target_color(acm_img)
+    acm_img = acm_img[:,:,[2,0,1]]
+    acm_img = cv2.resize(acm_img,(test.shape[1],test.shape[0]))
+    jetcam = (np.float32(acm_img)*0.7 + test*0.3)
+    jetcam = jetcam/np.max(jetcam)*255.0
     return np.uint8(jetcam)
+
+def find_rect_of_target_color(image):
+    hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+    h = hsv[:, :, 0]
+    s = hsv[:, :, 1]
+    v = hsv[:, :, 2]
+    mask = np.zeros(hsv.shape, dtype=np.uint8)
+    mask[((h < 5) | (h > 174)) & (s > 128)] = 255
+    return cv2.cvtColor(mask, cv2.COLOR_HSV2BGR)
 
 DATA = data()
 
@@ -250,15 +280,15 @@ print('time',t2-t1)
 '''
 for i in range(x_test_normal.shape[0]):
     train = x_train_normal
-    test = x_test_normal[i,:,:,:]
-    img_heatmap = heatmap(model_a, train, test, 0)
+    test_path = normal_path_test[i]
+    img_heatmap = heatmap(model_a, train, test_path)
     img_heatmapname = "heatmap/"+os.path.basename(normal_path_test[i])
     cv2.imwrite(img_heatmapname, img_heatmap)
 '''
 for i in range(x_test_anomaly.shape[0]):
     train = x_ref
-    test = x_test_anomaly[i,:,:,:]
-    img_heatmap = heatmap(model_a, train, test, 1)
+    test_path = anomaly_path_test[i]
+    img_heatmap = heatmap(model_a, train, test_path)
     img_heatmapname = "heatmap/"+os.path.basename(anomaly_path_test[i])
     cv2.imwrite(img_heatmapname, img_heatmap)
 print("Completed.")
