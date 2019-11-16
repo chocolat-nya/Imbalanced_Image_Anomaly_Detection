@@ -27,9 +27,9 @@ class data:
         for i in range(len(x)):
             if to_color:
                 img = cv2.cvtColor(x[i], cv2.COLOR_GRAY2RGB)
-                img = cv2.resize(img,dsize=(96,96))
+                img = cv2.resize(img,dsize=(224,224))
             else:
-                img = cv2.resize(x[i],dsize=(96,96))
+                img = cv2.resize(x[i],dsize=(224,224))
             result.append(img)
 
         return np.array(result)
@@ -53,9 +53,9 @@ class data:
     def get_data(self):
         oks = glob.glob('images/ok/*')
         ngs = glob.glob('images/ng/*')
-        ok_data = np.zeros((len(oks),96,96,3),dtype=np.float32)
+        ok_data = np.zeros((len(oks),224,224,3),dtype=np.float32)
         ok_label = np.zeros(len(oks))
-        ng_data = np.zeros((len(ngs),96,96,3),dtype=np.float32)
+        ng_data = np.zeros((len(ngs),224,224,3),dtype=np.float32)
         ng_label = np.zeros(len(ngs))
         normal_path = []
         anomaly_path = []
@@ -170,7 +170,7 @@ def train_arcface(x, y, classes):
                   optimizer=Adam(lr=0.0001, amsgrad=True),
                   metrics=['accuracy'])
 
-    hist = model.fit([x, y], y, batch_size=128, epochs=100, verbose = False)
+    hist = model.fit([x, y], y, batch_size=64, epochs=100, verbose = 1)
 
     return model
 
@@ -203,37 +203,29 @@ def heatmap(input_model, train, test_path):
     Train = train
     test = Image.open(test_path)
     test = np.array(test)
-    Test = cv2.resize(test,dsize=(96,96))
+    Test = cv2.resize(test,dsize=(224,224))
     Test = np.expand_dims(Test, axis=0)
     Test = Test.astype(np.float32)
     Test /= 255.0
 
     gradient_function = K.function([model.layers[0].input], [model.get_layer('block_1_expand').output])
     layer_output_test = gradient_function([Test])[0]
+    layer_output_test = tf.image.resize(layer_output_test, [224, 224])
 
-    res = np.zeros((48,48))
-    for j in range(Train.shape[0]):
-     Train2 = Train[j]
-     Train2 = np.expand_dims(Train2, axis=0)
-     layer_output_train = gradient_function([Train2])[0]
-     G1, R1, ch = layer_output_train.shape[1:]
-     G2, R2, ch = layer_output_test.shape[1:]
+    res = np.zeros((224,224))
+    G2, R2, ch = layer_output_test.shape[1:]
 
-     for i in range(ch):
-         img_res = np.abs(layer_output_test[0,:,:,i]-layer_output_train[0,:,:,i])
-         res = res + img_res
+    for i in range(ch):
+        img_res = layer_output_test[0,:,:,i]
+        res = res + img_res
 
-    res = res/ch/Train.shape[0]
+    res = res/ch
 
     res_flatte = np.ma.masked_equal(res,0)
     res_flatte = (res_flatte - res_flatte.min())*255/(res_flatte.max()-res_flatte.min())
     res_flatte = np.ma.filled(res_flatte,0)
 
     acm_img = cv2.applyColorMap(np.uint8(res_flatte), cv2.COLORMAP_JET)
-    acm_img = cv2.cvtColor(acm_img, cv2.COLOR_BGR2RGB)
-    rev = np.zeros((test.shape[1],test.shape[0],3))
-    rev = 255
-    acm_img = rev - acm_img
     acm_img = find_rect_of_target_color(acm_img)
     acm_img = acm_img[:,:,[2,0,1]]
     acm_img = cv2.resize(acm_img,(test.shape[1],test.shape[0]))
@@ -247,13 +239,12 @@ def find_rect_of_target_color(image):
     s = hsv[:, :, 1]
     v = hsv[:, :, 2]
     mask = np.zeros(hsv.shape, dtype=np.uint8)
-    mask[((h < 5) | (h > 174)) & (s > 128)] = 255
+    mask[((h < 10) | (h > 169)) & (s > 128)] = 255
     return cv2.cvtColor(mask, cv2.COLOR_HSV2BGR)
 
 DATA = data()
 
 x_train_normal, x_ref, y_ref, x_test_normal, x_test_anomaly, normal_path_test, anomaly_path_test = DATA.get_data()
-#print(x_train_normal.shape,x_ref.shape,y_ref.shape,x_test_normal.shape,x_test_anomaly.shape)
 
 normal_label = np.zeros((len(x_train_normal), 2))
 normal_label[:,0] = 1
