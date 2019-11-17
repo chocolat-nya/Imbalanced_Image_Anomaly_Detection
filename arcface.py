@@ -170,7 +170,7 @@ def train_arcface(x, y, classes):
                   optimizer=Adam(lr=0.0001, amsgrad=True),
                   metrics=['accuracy'])
 
-    hist = model.fit([x, y], y, batch_size=64, epochs=100, verbose = 1)
+    hist = model.fit([x, y], y, batch_size=32, epochs=100, verbose = 1)
 
     return model
 
@@ -210,9 +210,9 @@ def heatmap(input_model, train, test_path):
 
     gradient_function = K.function([model.layers[0].input], [model.get_layer('block_1_expand').output])
     layer_output_test = gradient_function([Test])[0]
-    layer_output_test = tf.image.resize(layer_output_test, [224, 224])
+    layer_output_test = tf.image.resize(layer_output_test, [test.shape[0],test.shape[1]])
 
-    res = np.zeros((224,224))
+    res = np.zeros((test.shape[0],test.shape[1]))
     G2, R2, ch = layer_output_test.shape[1:]
 
     for i in range(ch):
@@ -226,8 +226,8 @@ def heatmap(input_model, train, test_path):
     res_flatte = np.ma.filled(res_flatte,0)
 
     acm_img = cv2.applyColorMap(np.uint8(res_flatte), cv2.COLORMAP_JET)
-    acm_img = find_rect_of_target_color(acm_img)
-    acm_img = acm_img[:,:,[2,0,1]]
+#    acm_img = find_rect_of_target_color(acm_img)
+#    acm_img = acm_img[:,:,[2,0,1]]
     acm_img = cv2.resize(acm_img,(test.shape[1],test.shape[0]))
     jetcam = (np.float32(acm_img)*0.7 + test*0.3)
     jetcam = jetcam/np.max(jetcam)*255.0
@@ -266,7 +266,7 @@ for i in range(len(x_test_anomaly)):
     result[len(x_test_normal)+i,2] = str(Z2_arc[i])
 np.savetxt('result.csv',result,delimiter=',',fmt='%s')
 t2 = time.time()
-print('time',t2-t1)
+#print('time',t2-t1)
 '''
 for i in range(x_test_normal.shape[0]):
     train = x_train_normal
