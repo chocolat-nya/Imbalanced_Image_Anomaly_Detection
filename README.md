@@ -1,6 +1,6 @@
 # What's for
 
-Anomaly detection of images. It works if NG image number is too small compared with OK image number.
+Anomaly detection of images. It works even if NG image number is too small compared with OK image number.
 
 # Usage
 
@@ -16,10 +16,9 @@ python arcface_efficientnet.py
 
 # Option
 
-When you want to change train & test rate,
+When you want to change train & test rate, in arcface_efficient.py change numbers of ok_test_rate & ng_test_rate.
 
-in arcface.py change numbers of ok_test_rate & ng_test_rate.
-
+Change model_number 0-7 to choose which efficientnet to use.
 
 # Used urls below as a reference
 
