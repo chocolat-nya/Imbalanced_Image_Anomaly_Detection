@@ -10,7 +10,7 @@ put ok images in images/ok/
 
 put ng images in images/ng/
 
-python arcface.py
+python arcface_efficientnet.py
 
 
 
